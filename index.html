@@ -170,7 +170,6 @@ button:focus-visible { outline: 3px solid var(--c1); outline-offset: 2px; }
 const ELEICAO = "6258";               // 2º turno, Eleição Geral Federal (pleito 3221)
 const BASE = "https://resultados.tse.jus.br/oficial/ele2026/" + ELEICAO + "/dados";
 const INTERVALO_S = 60;
-const FIXADOS = ["rs", "sc"];          // aparecem logo depois do Brasil
 
 const UFS = {
   ac: "Acre", al: "Alagoas", ap: "Amapá", am: "Amazonas", ba: "Bahia", ce: "Ceará",
@@ -181,8 +180,8 @@ const UFS = {
   sc: "Santa Catarina", sp: "São Paulo", se: "Sergipe", to: "Tocantins", zz: "Exterior"
 };
 
-const ordem = ["br", ...FIXADOS,
-  ...Object.keys(UFS).filter(u => !FIXADOS.includes(u) && u !== "zz")
+const ordem = ["br",
+  ...Object.keys(UFS).filter(u => u !== "zz")
     .sort((a, b) => UFS[a].localeCompare(UFS[b], "pt-BR")),
   "zz"];
 
@@ -304,6 +303,20 @@ function renderCard(ab, dado, erro) {
   }
 }
 
+// Brasil sempre primeiro; UFs por % de seções totalizadas (maior primeiro), empate em ordem alfabética.
+function reordenarCards() {
+  const grid = document.getElementById("grid");
+  const apurado = ab => {
+    const d = ultimoOk.get(ab);
+    if (!d) return -1;
+    if (d.pst !== undefined) return num(d.pst);
+    return d.ts ? d.st / d.ts * 100 : 0;
+  };
+  const ufs = ordem.filter(ab => ab !== "br")
+    .sort((a, b) => apurado(b) - apurado(a) || UFS[a].localeCompare(UFS[b], "pt-BR"));
+  for (const ab of ["br", ...ufs]) grid.appendChild(document.getElementById("card-" + ab));
+}
+
 let carregando = false;
 let restante = INTERVALO_S;
 
@@ -333,6 +346,8 @@ async function atualizar() {
       renderCard(ab, ultimoOk.get(ab), msg);
     }
   });
+
+  reordenarCards();
 
   const agora = new Date().toLocaleTimeString("pt-BR");
   const falhas = resultados.filter(r => r.status === "rejected").length;
