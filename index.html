@@ -128,6 +128,11 @@ button:focus-visible { outline: 3px solid var(--c1); outline-offset: 2px; }
 .cand .pct { font: 600 1.15rem var(--font-num); font-variant-numeric: tabular-nums; }
 .card.br .cand .pct { font-size: 1.8rem; }
 .cand .votos { grid-column: 1 / -1; font: 0.8rem var(--font-num); color: var(--muted); font-variant-numeric: tabular-nums; }
+.cand .comp {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 12px;
+  font: 0.78rem var(--font-num); color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.cand .comp b { color: var(--fg); font-weight: 600; }
 .cand .bar { grid-column: 1 / -1; height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
 .card.br .cand .bar { height: 12px; }
 .cand .bar i { display: block; height: 100%; width: 0; background: var(--cor); transition: width .4s; }
@@ -163,12 +168,16 @@ button:focus-visible { outline: 3px solid var(--c1); outline-offset: 2px; }
     Fonte: arquivos oficiais de resultado do TSE (eleição 6258, cargo 0001).
     Percentuais calculados pelo TSE sobre os votos válidos. "Seções totalizadas" indica quanto da
     apuração já entrou na contagem daquela abrangência. Atualização automática a cada 60 segundos.
+    Comparação com o 1º turno (eleição 6257): a variação em p.p. (pontos percentuais) compara o
+    percentual de votos válidos de cada turno; no 1º turno os válidos eram divididos entre todos os
+    candidatos. Enquanto o 2º turno não chega a 100% das seções, a variação de votos compara uma
+    contagem parcial com um resultado final.
   </p>
 </main>
 
 <script>
 const ELEICAO = "6258";               // 2º turno, Eleição Geral Federal (pleito 3221)
-const BASE = "https://resultados.tse.jus.br/oficial/ele2026/" + ELEICAO + "/dados";
+const ELEICAO_1T = "6257";            // 1º turno, Eleição Geral Federal (pleito 3220)
 const INTERVALO_S = 60;
 
 const UFS = {
@@ -189,8 +198,12 @@ const fmtInt = new Intl.NumberFormat("pt-BR");
 const CORES = { 13: "var(--vermelho)", 22: "var(--azul)" }; // número de urna -> cor fixa
 let legendaPronta = false;
 const ultimoOk = new Map();            // abrangência -> último resultado válido
+const primeiroTurno = new Map();       // abrangência -> Map(número -> candidato); resultado final, buscado uma vez
 
-const urlDe = ab => `${BASE}/${ab}/${ab}-c0001-e00${ELEICAO}-u.json`;
+const urlDe = (ab, ele = ELEICAO) =>
+  `https://resultados.tse.jus.br/oficial/ele2026/${ele}/dados/${ab}/${ab}-c0001-e00${ele}-u.json`;
+const fmtPP = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "always" });
+const fmtDelta = new Intl.NumberFormat("pt-BR", { signDisplay: "always" });
 
 function montarCards() {
   const grid = document.getElementById("grid");
@@ -252,6 +265,25 @@ function atualizarLegenda(cands) {
   }
 }
 
+// Linha "1º turno" + variação para o 2º turno, casando o candidato pelo número de urna.
+function renderComparacao(el, c, cands1t) {
+  const c1 = cands1t && cands1t.get(c.n);
+  if (!cands1t) { el.textContent = "1º turno: carregando…"; return; }
+  if (!c1) { el.textContent = "1º turno: sem dados deste candidato"; return; }
+  const linha = (rotulo, valor) => {
+    const s = document.createElement("span");
+    s.append(rotulo + " ");
+    const b = document.createElement("b");
+    b.textContent = valor;
+    s.appendChild(b);
+    return s;
+  };
+  el.textContent = "";
+  el.appendChild(linha("1º turno:", `${c1.pvap}% · ${fmtInt.format(c1.vap)} votos`));
+  el.appendChild(linha("Variação:",
+    `${fmtPP.format(c.pct - c1.pct)} p.p. · ${fmtDelta.format(c.vap - c1.vap)} votos`));
+}
+
 function renderCard(ab, dado, erro) {
   const card = document.getElementById("card-" + ab);
   const foot = card.querySelector("footer");
@@ -274,7 +306,7 @@ function renderCard(ab, dado, erro) {
       const li = document.createElement("li");
       li.className = "cand";
       li.style.setProperty("--cor", corDe(c.n));
-      li.innerHTML = `<span class="nome"></span><span class="pct"></span><span class="votos"></span><span class="bar"><i></i></span>`;
+      li.innerHTML = `<span class="nome"></span><span class="pct"></span><span class="votos"></span><span class="comp"></span><span class="bar"><i></i></span>`;
       const nome = li.querySelector(".nome");
       nome.textContent = c.nome;
       const small = document.createElement("small");
@@ -288,6 +320,7 @@ function renderCard(ab, dado, erro) {
       }
       li.querySelector(".pct").textContent = c.pvap + "%";
       li.querySelector(".votos").textContent = fmtInt.format(c.vap) + " votos";
+      renderComparacao(li.querySelector(".comp"), c, primeiroTurno.get(ab));
       li.querySelector(".bar i").style.width = Math.min(c.pct, 100) + "%";
       ul.appendChild(li);
     }
@@ -327,11 +360,20 @@ async function atualizar() {
   btn.disabled = true;
   btn.textContent = "Atualizando…";
 
-  const resultados = await Promise.allSettled(ordem.map(async ab => {
-    const r = await fetch(urlDe(ab), { cache: "no-cache" });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    return parse(await r.json());
-  }));
+  // 1º turno é resultado final: busca só as abrangências que ainda não vieram.
+  const faltam1t = ordem.filter(ab => !primeiroTurno.has(ab));
+  const [resultados] = await Promise.all([
+    Promise.allSettled(ordem.map(async ab => {
+      const r = await fetch(urlDe(ab), { cache: "no-cache" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return parse(await r.json());
+    })),
+    Promise.allSettled(faltam1t.map(async ab => {
+      const r = await fetch(urlDe(ab, ELEICAO_1T));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      primeiroTurno.set(ab, new Map(parse(await r.json()).cands.map(c => [c.n, c])));
+    }))
+  ]);
 
   resultados.forEach((res, i) => {
     const ab = ordem[i];
