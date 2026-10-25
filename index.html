@@ -16,7 +16,9 @@
   --line: #d7dedb;
   --track: #e6ebe9;
   --c1: #1f6fb2;
-  --c2: #c2571a;
+  --vermelho: #c8261f;
+  --azul: #1f5fb8;
+  --neutro: #7a8580;
   --ok: #1d7a46;
   --warn: #a15c00;
   --font-ui: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -32,7 +34,9 @@
     --line: #2a3531;
     --track: #24302c;
     --c1: #5aa9ec;
-    --c2: #f08a4b;
+    --vermelho: #f0645c;
+    --azul: #5b9cf0;
+    --neutro: #8c9893;
     --ok: #4cc283;
     --warn: #e6a446;
     color-scheme: dark;
@@ -183,7 +187,8 @@ const ordem = ["br", ...FIXADOS,
   "zz"];
 
 const fmtInt = new Intl.NumberFormat("pt-BR");
-const cores = new Map();               // número do candidato -> cor, fixo entre cards
+const CORES = { 13: "var(--vermelho)", 22: "var(--azul)" }; // número de urna -> cor fixa
+let legendaPronta = false;
 const ultimoOk = new Map();            // abrangência -> último resultado válido
 
 const urlDe = ab => `${BASE}/${ab}/${ab}-c0001-e00${ELEICAO}-u.json`;
@@ -232,13 +237,12 @@ function parse(j) {
 }
 
 function corDe(n) {
-  if (!cores.has(n)) cores.set(n, cores.size === 0 ? "var(--c1)" : "var(--c2)");
-  return cores.get(n);
+  return CORES[n] || "var(--neutro)";
 }
 
 function atualizarLegenda(cands) {
-  if (cores.size) return;
-  [...cands].sort((a, b) => a.n - b.n).forEach(c => corDe(c.n));
+  if (legendaPronta || !cands.length) return;
+  legendaPronta = true;
   const leg = document.getElementById("legend");
   leg.textContent = "";
   for (const c of [...cands].sort((a, b) => a.n - b.n)) {
