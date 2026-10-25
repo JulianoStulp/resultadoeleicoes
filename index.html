@@ -303,7 +303,7 @@ function renderCard(ab, dado, erro) {
   }
 }
 
-// Brasil sempre primeiro; UFs por % de seções totalizadas (maior primeiro), empate em ordem alfabética.
+// Brasil sempre primeiro e Exterior sempre último; UFs por % de seções totalizadas (maior primeiro), empate em ordem alfabética.
 function reordenarCards() {
   const grid = document.getElementById("grid");
   const apurado = ab => {
@@ -312,9 +312,9 @@ function reordenarCards() {
     if (d.pst !== undefined) return num(d.pst);
     return d.ts ? d.st / d.ts * 100 : 0;
   };
-  const ufs = ordem.filter(ab => ab !== "br")
+  const ufs = ordem.filter(ab => ab !== "br" && ab !== "zz")
     .sort((a, b) => apurado(b) - apurado(a) || UFS[a].localeCompare(UFS[b], "pt-BR"));
-  for (const ab of ["br", ...ufs]) grid.appendChild(document.getElementById("card-" + ab));
+  for (const ab of ["br", ...ufs, "zz"]) grid.appendChild(document.getElementById("card-" + ab));
 }
 
 let carregando = false;
