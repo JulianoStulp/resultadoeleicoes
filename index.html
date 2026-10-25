@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apuração Presidente 2º Turno</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: barra de status fixa no topo, card do Brasil em largura total, grade de cards por UF abaixo. */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --fg: #16201c;
+  --muted: #5d6b65;
+  --line: #d7dedb;
+  --track: #e6ebe9;
+  --c1: #1f6fb2;
+  --c2: #c2571a;
+  --ok: #1d7a46;
+  --warn: #a15c00;
+  --font-ui: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101513;
+    --surface: #18201d;
+    --fg: #e7eeeb;
+    --muted: #94a39d;
+    --line: #2a3531;
+    --track: #24302c;
+    --c1: #5aa9ec;
+    --c2: #f08a4b;
+    --ok: #4cc283;
+    --warn: #e6a446;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.45 var(--font-ui);
+}
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-block: 0 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 14px;
+}
+h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.sub { color: var(--muted); font-size: 0.85rem; }
+.controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.countdown { font: 0.85rem var(--font-num); color: var(--muted); font-variant-numeric: tabular-nums; }
+button {
+  font: 600 0.9rem var(--font-ui);
+  color: var(--surface);
+  background: var(--fg);
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.55; cursor: progress; }
+button:focus-visible { outline: 3px solid var(--c1); outline-offset: 2px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 18px 0 14px; font-size: 0.9rem; }
+.legend span::before {
+  content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+  margin-right: 6px; background: var(--dot);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.card.br { grid-column: 1 / -1; padding: 20px 22px; }
+.card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+.card.br h2 { font-size: 1.35rem; }
+.uf { font: 600 0.75rem var(--font-num); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.apur { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.apur strong { color: var(--fg); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.apur .bar { height: 4px; background: var(--track); border-radius: 2px; overflow: hidden; }
+.apur .bar i { display: block; height: 100%; background: var(--muted); width: 0; transition: width .4s; }
+.cands { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.cand { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; }
+.cand .nome { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.cand .nome small { color: var(--muted); font: 400 0.75rem var(--font-num); margin-left: 4px; }
+.cand .pct { font: 600 1.15rem var(--font-num); font-variant-numeric: tabular-nums; }
+.card.br .cand .pct { font-size: 1.8rem; }
+.cand .votos { grid-column: 1 / -1; font: 0.8rem var(--font-num); color: var(--muted); font-variant-numeric: tabular-nums; }
+.cand .bar { grid-column: 1 / -1; height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+.card.br .cand .bar { height: 12px; }
+.cand .bar i { display: block; height: 100%; width: 0; background: var(--cor); transition: width .4s; }
+.eleito {
+  font: 700 0.7rem var(--font-ui); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ok); border: 1px solid var(--ok); border-radius: 4px; padding: 1px 6px; margin-left: 6px;
+}
+.card footer { font-size: 0.75rem; color: var(--muted); margin-top: auto; }
+.card footer.erro { color: var(--warn); }
+.vazio { color: var(--muted); font-size: 0.85rem; }
+.nota { margin-top: 24px; font-size: 0.8rem; color: var(--muted); max-width: 70ch; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="wrap">
+    <div>
+      <h1>Presidente · 2º turno 2026</h1>
+      <div class="sub" id="ultima">Ainda não consultado</div>
+    </div>
+    <div class="controls">
+      <span class="countdown" id="countdown"></span>
+      <button type="button" id="atualizar">Atualizar agora</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="legend" id="legend"></div>
+  <div class="grid" id="grid"></div>
+  <p class="nota">
+    Fonte: arquivos oficiais de resultado do TSE (eleição 6258, cargo 0001).
+    Percentuais calculados pelo TSE sobre os votos válidos. "Seções totalizadas" indica quanto da
+    apuração já entrou na contagem daquela abrangência. Atualização automática a cada 60 segundos.
+  </p>
+</main>
+
+<script>
+const ELEICAO = "6258";               // 2º turno, Eleição Geral Federal (pleito 3221)
+const BASE = "https://resultados.tse.jus.br/oficial/ele2026/" + ELEICAO + "/dados";
+const INTERVALO_S = 60;
+const FIXADOS = ["rs", "sc"];          // aparecem logo depois do Brasil
+
+const UFS = {
+  ac: "Acre", al: "Alagoas", ap: "Amapá", am: "Amazonas", ba: "Bahia", ce: "Ceará",
+  df: "Distrito Federal", es: "Espírito Santo", go: "Goiás", ma: "Maranhão",
+  mt: "Mato Grosso", ms: "Mato Grosso do Sul", mg: "Minas Gerais", pa: "Pará",
+  pb: "Paraíba", pr: "Paraná", pe: "Pernambuco", pi: "Piauí", rj: "Rio de Janeiro",
+  rn: "Rio Grande do Norte", rs: "Rio Grande do Sul", ro: "Rondônia", rr: "Roraima",
+  sc: "Santa Catarina", sp: "São Paulo", se: "Sergipe", to: "Tocantins", zz: "Exterior"
+};
+
+const ordem = ["br", ...FIXADOS,
+  ...Object.keys(UFS).filter(u => !FIXADOS.includes(u) && u !== "zz")
+    .sort((a, b) => UFS[a].localeCompare(UFS[b], "pt-BR")),
+  "zz"];
+
+const fmtInt = new Intl.NumberFormat("pt-BR");
+const cores = new Map();               // número do candidato -> cor, fixo entre cards
+const ultimoOk = new Map();            // abrangência -> último resultado válido
+
+const urlDe = ab => `${BASE}/${ab}/${ab}-c0001-e00${ELEICAO}-u.json`;
+
+function montarCards() {
+  const grid = document.getElementById("grid");
+  for (const ab of ordem) {
+    const card = document.createElement("article");
+    card.className = "card" + (ab === "br" ? " br" : "");
+    card.id = "card-" + ab;
+    card.innerHTML = `
+      <header><h2></h2><span class="uf"></span></header>
+      <div class="apur"><span>Seções totalizadas: <strong>–</strong></span><div class="bar"><i></i></div></div>
+      <ul class="cands"><li class="vazio">Aguardando dados do TSE…</li></ul>
+      <footer></footer>`;
+    card.querySelector("h2").textContent = ab === "br" ? "Brasil" : UFS[ab];
+    card.querySelector(".uf").textContent = ab === "br" ? "BR" : ab;
+    grid.appendChild(card);
+  }
+}
+
+function num(x) {
+  if (x === undefined || x === null || x === "") return 0;
+  return Number(String(x).replace(",", ".")) || 0;
+}
+
+function parse(j) {
+  const carg = (j.carg || [])[0];
+  const cands = carg
+    ? (carg.agr || []).flatMap(a => (a.par || []).flatMap(p => p.cand || []))
+    : [];
+  return {
+    pst: j.s ? j.s.pst : undefined,
+    st: j.s ? num(j.s.st) : 0,
+    ts: j.s ? num(j.s.ts) : 0,
+    gerado: j.dg && j.hg ? `${j.dg} ${j.hg}` : "",
+    cands: cands.map(c => ({
+      n: num(c.n),
+      nome: c.nmu || c.nm || "Candidato " + c.n,
+      vap: num(c.vap),
+      pvap: c.pvap !== undefined ? String(c.pvap) : "0",
+      pct: c.pvapn !== undefined ? num(c.pvapn) : num(c.pvap),
+      eleito: c.e === "s"
+    })).sort((a, b) => b.vap - a.vap || a.n - b.n)
+  };
+}
+
+function corDe(n) {
+  if (!cores.has(n)) cores.set(n, cores.size === 0 ? "var(--c1)" : "var(--c2)");
+  return cores.get(n);
+}
+
+function atualizarLegenda(cands) {
+  if (cores.size) return;
+  [...cands].sort((a, b) => a.n - b.n).forEach(c => corDe(c.n));
+  const leg = document.getElementById("legend");
+  leg.textContent = "";
+  for (const c of [...cands].sort((a, b) => a.n - b.n)) {
+    const s = document.createElement("span");
+    s.style.setProperty("--dot", corDe(c.n));
+    s.textContent = `${c.nome} (${c.n})`;
+    leg.appendChild(s);
+  }
+}
+
+function renderCard(ab, dado, erro) {
+  const card = document.getElementById("card-" + ab);
+  const foot = card.querySelector("footer");
+  if (dado) {
+    const pstNum = dado.pst !== undefined ? num(dado.pst) : (dado.ts ? dado.st / dado.ts * 100 : 0);
+    const pstTxt = dado.pst !== undefined ? String(dado.pst) : pstNum.toFixed(2).replace(".", ",");
+    card.querySelector(".apur strong").textContent =
+      `${pstTxt}%` + (dado.ts ? ` (${fmtInt.format(dado.st)} de ${fmtInt.format(dado.ts)})` : "");
+    card.querySelector(".apur .bar i").style.width = Math.min(pstNum, 100) + "%";
+
+    const ul = card.querySelector(".cands");
+    ul.textContent = "";
+    if (!dado.cands.length) {
+      const li = document.createElement("li");
+      li.className = "vazio";
+      li.textContent = "Arquivo sem candidatos ainda.";
+      ul.appendChild(li);
+    }
+    for (const c of dado.cands) {
+      const li = document.createElement("li");
+      li.className = "cand";
+      li.style.setProperty("--cor", corDe(c.n));
+      li.innerHTML = `<span class="nome"></span><span class="pct"></span><span class="votos"></span><span class="bar"><i></i></span>`;
+      const nome = li.querySelector(".nome");
+      nome.textContent = c.nome;
+      const small = document.createElement("small");
+      small.textContent = c.n;
+      nome.appendChild(small);
+      if (c.eleito) {
+        const b = document.createElement("span");
+        b.className = "eleito";
+        b.textContent = "Eleito";
+        nome.appendChild(b);
+      }
+      li.querySelector(".pct").textContent = c.pvap + "%";
+      li.querySelector(".votos").textContent = fmtInt.format(c.vap) + " votos";
+      li.querySelector(".bar i").style.width = Math.min(c.pct, 100) + "%";
+      ul.appendChild(li);
+    }
+  }
+  if (erro) {
+    foot.className = "erro";
+    foot.textContent = dado
+      ? `TSE não respondeu agora (${erro}). Mostrando a leitura de ${dado.gerado || "antes"}.`
+      : `TSE não respondeu (${erro}).`;
+  } else {
+    foot.className = "";
+    foot.textContent = dado.gerado ? `Arquivo gerado pelo TSE em ${dado.gerado}` : "";
+  }
+}
+
+let carregando = false;
+let restante = INTERVALO_S;
+
+async function atualizar() {
+  if (carregando) return;
+  carregando = true;
+  const btn = document.getElementById("atualizar");
+  btn.disabled = true;
+  btn.textContent = "Atualizando…";
+
+  const resultados = await Promise.allSettled(ordem.map(async ab => {
+    const r = await fetch(urlDe(ab), { cache: "no-cache" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return parse(await r.json());
+  }));
+
+  resultados.forEach((res, i) => {
+    const ab = ordem[i];
+    if (res.status === "fulfilled") {
+      ultimoOk.set(ab, res.value);
+      if (ab === "br") atualizarLegenda(res.value.cands);
+      renderCard(ab, res.value, null);
+    } else {
+      const msg = res.reason && res.reason.message === "Failed to fetch"
+        ? "bloqueio de rede ou CORS"
+        : (res.reason && res.reason.message) || "erro";
+      renderCard(ab, ultimoOk.get(ab), msg);
+    }
+  });
+
+  const agora = new Date().toLocaleTimeString("pt-BR");
+  const falhas = resultados.filter(r => r.status === "rejected").length;
+  document.getElementById("ultima").textContent =
+    `Última consulta às ${agora}` + (falhas ? ` · ${falhas} de ${ordem.length} sem resposta` : "");
+
+  btn.disabled = false;
+  btn.textContent = "Atualizar agora";
+  carregando = false;
+  restante = INTERVALO_S;
+}
+
+function tick() {
+  if (carregando) return;
+  restante -= 1;
+  document.getElementById("countdown").textContent = `Próxima em ${restante}s`;
+  if (restante <= 0) atualizar();
+}
+
+montarCards();
+document.getElementById("atualizar").addEventListener("click", atualizar);
+atualizar();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
